@@ -9,7 +9,9 @@ from scipy import misc
 import matplotlib.pyplot as plt
 import numpy as np
 
-PLOT = True
+PLOT = False
+ALPHA = 2
+BETA = 0.2
 
 class Vertex(object):
     def __init__(self, name='', y=None, neighs=None, in_msgs=None):
@@ -24,12 +26,38 @@ class Vertex(object):
     def rem_neigh(self,vertex):
         self._neighs.remove(vertex)
     def get_belief(self):
-        return
+
+        # Calc other neighbors product
+        prod_neighs_pos = np.prod([msg[1] for msg in self._in_msgs.values()])
+        prod_neighs_neg = np.prod([msg[0] for msg in self._in_msgs.values()])
+        pos_x = psi(1, self._y, ALPHA) * prod_neighs_pos
+        neg_x = psi(-1, self._y, ALPHA) * prod_neighs_neg
+        if pos_x >= neg_x:
+            return 1
+        return -1
+
     def snd_msg(self,neigh):
         """ Combines messages from all other neighbours
             to propagate a message to the neighbouring Vertex 'neigh'.
         """
+        msg = []
+        # Go over all possible x_j values
+        for neigh_x in [-1, 1]:
+            # Calc other neighbors product
+            prod_neighs_pos = np.prod([msg[1] for other_neigh, msg in self._in_msgs.items() if other_neigh != neigh])
+            prod_neighs_neg = np.prod([msg[0] for other_neigh, msg in self._in_msgs.items() if other_neigh != neigh])
+            # Calc msg
+            msg_pos = psi(1, self._y, ALPHA) * psi(1, neigh_x, BETA) * prod_neighs_pos
+            msg_neg = psi(-1, self._y, ALPHA) * psi(-1, neigh_x, BETA) * prod_neighs_neg
+            msg.append(max(msg_pos, msg_neg))
+        # Normalize msg
+        msg = [i/sum(msg) for i in msg]
+        neigh.update_msg(self, msg)
+
         return
+
+    def update_msg(self, neigh, msg):
+        self._in_msgs[neigh] = msg
 
     def __str__(self):
         ret = "Name: "+self._name
@@ -39,6 +67,9 @@ class Vertex(object):
             neigh_list += " "+n._name
         ret+= neigh_list
         return ret
+
+    def get_neighbours(self):
+        return self._neighs
     
 class Graph(object):
     def __init__(self, graph_dict=None):
@@ -130,13 +161,16 @@ def grid2mat(grid,n,m):
     for v in l:
         i = int(v._name[1:])
         row,col = (i//m,i%m)
-        mat[row][col] = 2017 # you should change this of course
+        mat[row][col] = v.get_belief()
     return mat
+
+def psi(z1, z2, factor):
+    return np.exp(factor*z1*z2)
 
 def main():
     # begin:
     if len(sys.argv) < 3:
-        print 'Please specify input and output file names.'
+        print('Please specify input and output file names.')
         exit(0)
     # load image:
     in_file_name = sys.argv[1]
@@ -156,6 +190,13 @@ def main():
 
     # process grid:
     # here you should do stuff to recover the image...
+    # vertices = sorted(g.vertices(), key= lambda x: int(x._name[1:]))
+    vertices = g.vertices()
+    for i in range(1000):
+        for v in vertices:
+            for neigh in v.get_neighbours():
+                v.snd_msg(neigh)
+
    
     # convert grid to image: 
     infered_img = grid2mat(g, n, m)
