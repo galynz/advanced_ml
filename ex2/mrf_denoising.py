@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 PLOT = False
-ALPHA = 2
-BETA = 0.2
+ALPHA = 1
+BETA = 0.6
 
 class Vertex(object):
     def __init__(self, name='', y=None, neighs=None, in_msgs=None):
@@ -192,7 +192,7 @@ def main():
     # here you should do stuff to recover the image...
     # vertices = sorted(g.vertices(), key= lambda x: int(x._name[1:]))
     vertices = g.vertices()
-    for i in range(1000):
+    for i in range(100):
         for v in vertices:
             for neigh in v.get_neighbours():
                 v.snd_msg(neigh)
