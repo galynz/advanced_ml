@@ -82,7 +82,7 @@ vae.fit(x_train,
 
 
 # build a model to project inputs on the latent space
-encoder = Model(x, z_mean) #TODO: change z_mean to z
+encoder = Model(x, z)
 x_test_encoded = encoder.predict(x_test, batch_size=batch_size)
 
 # Take one image per digit and print its corresponding mapping coordinates in the latent space
@@ -107,11 +107,10 @@ orig_encoded_1 = x_test_encoded[np.random.choice(np.where(y_test == 1)[0])]
 orig_encoded_8 = x_test_encoded[np.random.choice(np.where(y_test == 8)[0])]
 
 
-# TODO: change the sampling function (because this function samples evenly spaced numbers)
-grid_x = np.linspace(min(orig_encoded_1[0], orig_encoded_8[0]),
-                     max(orig_encoded_1[0], orig_encoded_8[0]), n)
-grid_y = np.linspace(min(orig_encoded_1[1], orig_encoded_8[1]),
-                     max(orig_encoded_1[1], orig_encoded_8[1]), n)
+grid_x = np.random.uniform(min(orig_encoded_1[0], orig_encoded_8[0]),
+                           max(orig_encoded_1[0], orig_encoded_8[0]), n)
+grid_y = np.random.uniform(min(orig_encoded_1[1], orig_encoded_8[1]),
+                           max(orig_encoded_1[1], orig_encoded_8[1]), n)
 
 for i, (x, y) in enumerate(zip(grid_x, grid_y)):
     z_sample = np.array([[x, y]])

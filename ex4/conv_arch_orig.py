@@ -13,7 +13,7 @@ from keras.datasets import mnist
 batch_size = 100
 original_dim = 784
 latent_dim = 2
-intermediate_dim = 256
+intermediate_dim = 16
 epochs = 50
 epsilon_std = 1.0
 fix_var = False
@@ -29,8 +29,9 @@ def sampling(args):
 # Definition of Keras ConvNet architecture
 
 input_shape = (28, 28, 1)
-inputs = Input(shape=input_shape, name='encoder_input')
+inputs = Input(shape=(original_dim,), name='encoder_input')
 x = inputs
+x = Reshape(input_shape)(x)
 x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
 x = MaxPooling2D((2, 2), padding='same')(x)
 x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
@@ -55,7 +56,7 @@ conv2 = Conv2D(16, (3, 3), activation='relu', padding='same')
 upsampling2 = UpSampling2D((2, 2))
 conv3 = Conv2D(1, (3, 3), activation='sigmoid', padding='same')
 flatten1 = Flatten()
-decoder_mean = Dense(original_dim, activation='sigmoid')
+
 
 x = dense1(z)
 x = dense2(x)
@@ -65,27 +66,12 @@ x = upsampling1(x)
 x = conv2(x)
 x = upsampling2(x)
 x = conv3(x)
-x = flatten1(x)
-x_decoded_mean = decoder_mean(x)
+outputs = flatten1(x)
 
-# x = Dense(intermediate_dim, activation='relu')(z)
-# x = Dense(shape[1] * shape[2] * shape[3], activation='relu')(x)
-# x = Reshape((shape[1], shape[2], shape[3]))(x)
-# x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
-# x = UpSampling2D((2, 2))(x)
-# x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
-# x = UpSampling2D((2, 2))(x)
-# outputs = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x)
-# x = Flatten()(outputs)
-# decoder_mean = Dense(original_dim, activation='sigmoid')
-# x_decoded_mean = decoder_mean(x)
-
-
-# vae = Model(inputs, outputs, name='vae')
-vae = Model(inputs, x_decoded_mean)
+vae = Model(inputs, outputs)
 
 # Compute VAE loss
-xent_loss = original_dim * metrics.binary_crossentropy(x, x_decoded_mean)
+xent_loss = original_dim * metrics.binary_crossentropy(inputs, outputs)
 kl_loss = - 0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
 
 vae_loss = K.mean(xent_loss + kl_loss)
@@ -100,8 +86,8 @@ vae.summary()
 
 x_train = x_train.astype('float32') / 255.
 x_test = x_test.astype('float32') / 255.
-x_train = x_train.reshape((len(x_train), 28, 28, 1))
-x_test = x_test.reshape((len(x_test), 28, 28, 1))
+x_train = x_train.reshape((len(x_train), np.prod(x_train.shape[1:])))
+x_test = x_test.reshape((len(x_test), np.prod(x_test.shape[1:])))
 
 vae.fit(x_train,
         shuffle=True,
@@ -132,9 +118,8 @@ _x = upsampling1(_x)
 _x = conv2(_x)
 _x = upsampling2(_x)
 _x = conv3(_x)
-_x = flatten1(_x)
-_x_decoded_mean = decoder_mean(_x)
-generator = Model(decoder_input, _x_decoded_mean)
+_outputs = flatten1(_x)
+generator = Model(decoder_input, _outputs)
 
 
 # Add a sequence of images which form an interpolation from one digit to another
@@ -145,11 +130,10 @@ orig_encoded_1 = x_test_encoded[np.random.choice(np.where(y_test == 1)[0])]
 orig_encoded_8 = x_test_encoded[np.random.choice(np.where(y_test == 8)[0])]
 
 
-# TODO: change the sampling function (because this function samples evenly spaced numbers)
-grid_x = np.linspace(min(orig_encoded_1[0], orig_encoded_8[0]),
-                     max(orig_encoded_1[0], orig_encoded_8[0]), n)
-grid_y = np.linspace(min(orig_encoded_1[1], orig_encoded_8[1]),
-                     max(orig_encoded_1[1], orig_encoded_8[1]), n)
+grid_x = np.random.uniform(min(orig_encoded_1[0], orig_encoded_8[0]),
+                           max(orig_encoded_1[0], orig_encoded_8[0]), n)
+grid_y = np.random.uniform(min(orig_encoded_1[1], orig_encoded_8[1]),
+                           max(orig_encoded_1[1], orig_encoded_8[1]), n)
 
 for i, (x, y) in enumerate(zip(grid_x, grid_y)):
     z_sample = np.array([[x, y]])
