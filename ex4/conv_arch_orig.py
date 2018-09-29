@@ -100,6 +100,9 @@ vae.fit(x_train,
 encoder = Model(inputs, z)
 x_test_encoded = encoder.predict(x_test, batch_size=batch_size)
 
+plt.scatter(x_test_encoded[:,0], x_test_encoded[:,1], c=y_test)
+plt.colorbar()
+plt.savefig("/Users/gal/Dropbox/gal/classes/ml/advanced_ml/ex4/vae_scatter_3.png")
 
 # Take one image per digit and print its corresponding mapping coordinates in the latent space
 row_format ="{:>20}" * 3
@@ -139,5 +142,5 @@ for i, (x, y) in enumerate(zip(grid_x, grid_y)):
     z_sample = np.array([[x, y]])
     x_decoded = generator.predict(z_sample)
     digit = x_decoded[0].reshape(digit_size, digit_size)
-    plt.imsave("/Users/gal/Dropbox/gal/classes/ml/advanced_ml/ex4/cnn_digit_id_%d.png" % i, digit)
+    plt.imsave("/Users/gal/Dropbox/gal/classes/ml/advanced_ml/ex4/cnn_digit_id_%d_3.png" % i, digit)
 

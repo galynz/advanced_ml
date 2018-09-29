@@ -12,6 +12,7 @@ import numpy as np
 PLOT = False
 ALPHA = 1
 BETA = 0.6
+EPSILON = 0.01
 
 class Vertex(object):
     def __init__(self, name='', y=None, neighs=None, in_msgs=None):
@@ -30,8 +31,8 @@ class Vertex(object):
         # Calc other neighbors product
         prod_neighs_pos = np.prod([msg[1] for msg in self._in_msgs.values()])
         prod_neighs_neg = np.prod([msg[0] for msg in self._in_msgs.values()])
-        pos_x = psi(1, self._y, ALPHA) * prod_neighs_pos
-        neg_x = psi(-1, self._y, ALPHA) * prod_neighs_neg
+        pos_x = psi(1, self._y, ALPHA) * prod_neighs_pos # the probability when x=1
+        neg_x = psi(-1, self._y, ALPHA) * prod_neighs_neg # the probability when x=-1
         if pos_x >= neg_x:
             return 1
         return -1
@@ -44,20 +45,34 @@ class Vertex(object):
         # Go over all possible x_j values
         for neigh_x in [-1, 1]:
             # Calc other neighbors product
-            prod_neighs_pos = np.prod([msg[1] for other_neigh, msg in self._in_msgs.items() if other_neigh != neigh])
-            prod_neighs_neg = np.prod([msg[0] for other_neigh, msg in self._in_msgs.items() if other_neigh != neigh])
+            prod_neighs_pos = np.prod([cur_msg[1] for other_neigh, cur_msg in self._in_msgs.items() if other_neigh != neigh._name])
+            prod_neighs_neg = np.prod([cur_msg[0] for other_neigh, cur_msg in self._in_msgs.items() if other_neigh != neigh._name])
             # Calc msg
-            msg_pos = psi(1, self._y, ALPHA) * psi(1, neigh_x, BETA) * prod_neighs_pos
-            msg_neg = psi(-1, self._y, ALPHA) * psi(-1, neigh_x, BETA) * prod_neighs_neg
+            msg_pos = psi(1, self._y, ALPHA) * psi(1, neigh_x, BETA) * prod_neighs_pos # x_i is 1
+            msg_neg = psi(-1, self._y, ALPHA) * psi(-1, neigh_x, BETA) * prod_neighs_neg # x_i is -1
             msg.append(max(msg_pos, msg_neg))
         # Normalize msg
-        msg = [i/sum(msg) for i in msg]
-        neigh.update_msg(self, msg)
+        msg = [float(i)/sum(msg) for i in msg]
+        # Update the neighbour's msg and check convergence
+        conv = neigh.update_msg(self, msg)
 
-        return
+        return conv
 
     def update_msg(self, neigh, msg):
-        self._in_msgs[neigh] = msg
+        """
+        Update the neighbour's incoming msg
+        :param neigh: vertex object
+        :param msg: a list of msgs regarding x=1 and x=-1
+        :return: True/False based on msg convergence
+        """
+        old_msg = self._in_msgs.get(neigh._name, None)
+        self._in_msgs[neigh._name] = msg
+        if old_msg is None:
+            return False
+        dist = ((msg[0] - old_msg[0])**2 + (msg[1] - old_msg[1])**2)**0.5
+        if dist <= EPSILON:
+            return True
+        return False
 
     def __str__(self):
         ret = "Name: "+self._name
@@ -70,7 +85,8 @@ class Vertex(object):
 
     def get_neighbours(self):
         return self._neighs
-    
+
+
 class Graph(object):
     def __init__(self, graph_dict=None):
         """ initializes a graph object
@@ -127,6 +143,7 @@ class Graph(object):
             res+= str(edge) + " "
         return res
 
+
 def build_grid_graph(n,m,img_mat):
     """ Builds an nxm grid graph, with vertex values corresponding to pixel intensities.
     n: num of rows
@@ -148,7 +165,8 @@ def build_grid_graph(n,m,img_mat):
             g.add_edge((v,V[i-m]))
         V += [v]
     return g
-    
+
+
 def grid2mat(grid,n,m):
     """ convertes grid graph to a np.ndarray
     n: num of rows
@@ -164,8 +182,10 @@ def grid2mat(grid,n,m):
         mat[row][col] = v.get_belief()
     return mat
 
+
 def psi(z1, z2, factor):
     return np.exp(factor*z1*z2)
+
 
 def main():
     # begin:
@@ -189,15 +209,14 @@ def main():
     g = build_grid_graph(n, m, image)
 
     # process grid:
-    # here you should do stuff to recover the image...
-    # vertices = sorted(g.vertices(), key= lambda x: int(x._name[1:]))
-    vertices = g.vertices()
-    for i in range(100):
+    vertices = sorted(g.vertices(), key= lambda x: int(x._name[1:]))
+    while True:
         for v in vertices:
             for neigh in v.get_neighbours():
-                v.snd_msg(neigh)
+                conv = v.snd_msg(neigh)
+        if conv:
+            break
 
-   
     # convert grid to image: 
     infered_img = grid2mat(g, n, m)
     if PLOT:
@@ -207,6 +226,7 @@ def main():
     # save result to output file
     out_file_name = sys.argv[2]
     misc.toimage(infered_img).save(out_file_name + '.png')
+
 
 if __name__ == "__main__":
     main()
